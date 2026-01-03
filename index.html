@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Minecraft törtes kártyajáték – sávábrák + kuka számláló</title>
+  <style>
+    :root{
+      --bg1:#061018;
+      --bg2:#0b1f2b;
+
+      --panel:#0f2a35;
+      --panel2:#123645;
+
+      --ink:#eaffff;
+      --muted:#b8f3ff;
+
+      --gridBorder:#0b0f12;
+      --shadow: 0 10px 0 rgba(0,0,0,.35);
+
+      --red:#ff3b3b;
+      --blue:#2aa7ff;
+
+      --lime:#39ff6a;
+      --bad:#ff2e2e;
+      --gold:#ffd84a;
+
+      --cardBg1:#0b2c39;
+      --cardBg2:#082431;
+
+      --pixel: 3px;
+      --radius: 12px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", sans-serif;
+      color:var(--ink);
+      background:
+        linear-gradient(0deg, rgba(0,0,0,.35), rgba(0,0,0,.35)),
+        radial-gradient(1200px 700px at 15% 10%, var(--bg2), var(--bg1));
+    }
+
+    header{
+      padding:16px 14px 10px;
+      text-align:center;
+    }
+    header h1{
+      margin:0;
+      font-size: clamp(20px, 4vw, 30px);
+      letter-spacing:.5px;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+    header p{
+      margin:10px auto 0;
+      max-width: 1100px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .wrap{
+      max-width: 1240px;
+      margin: 10px auto 24px;
+      padding: 0 14px;
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:14px;
+    }
+    @media (max-width: 980px){
+      .wrap{grid-template-columns:1fr}
+    }
+
+    .frame{
+      background: linear-gradient(180deg, var(--panel2), var(--panel));
+      border: var(--pixel) solid #0a0f12;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    .frame::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.28;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 10px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.10) 0 2px, transparent 2px 10px);
+      mix-blend-mode: overlay;
+    }
+    .hd{
+      padding:12px 12px;
+      border-bottom: var(--pixel) solid #0a0f12;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 10px;
+      border-radius: 999px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #1a5164, #134557);
+      box-shadow: 0 6px 0 rgba(0,0,0,.25);
+      font-weight:1000;
+      letter-spacing:.2px;
+      font-size: 13px;
+      color: var(--ink);
+      white-space:nowrap;
+    }
+    .dot{
+      width:12px;height:12px;border-radius:3px;
+      background:#fff;
+      border: var(--pixel) solid #0a0f12;
+      box-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+    .btn{
+      appearance:none;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #2aa7ff, #1479c2);
+      color:#08131a;
+      padding:10px 12px;
+      border-radius: 10px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow: 0 6px 0 rgba(0,0,0,.28);
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(2px); box-shadow: 0 4px 0 rgba(0,0,0,.28); }
+    .btn.secondary{
+      background: linear-gradient(180deg, #f3f7ff, #cfd9ea);
+      color:#08131a;
+    }
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+
+    .select{
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #f3f7ff, #cfd9ea);
+      color:#08131a;
+      padding:10px 12px;
+      border-radius: 10px;
+      font-weight:1000;
+      box-shadow: 0 6px 0 rgba(0,0,0,.28);
+      cursor:pointer;
+    }
+
+    /* Board */
+    .boardBody{ padding:14px; display:grid; gap:12px; }
+
+    .gridBoard{
+      display:grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap:12px;
+    }
+    @media (max-width: 700px){
+      .gridBoard{grid-template-columns: repeat(2, minmax(140px, 1fr));}
+    }
+
+    .card{
+      border: var(--pixel) solid var(--gridBorder);
+      border-radius: 16px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.12)),
+        linear-gradient(180deg, var(--cardBg1), var(--cardBg2));
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 16px 14px;
+      position:relative;
+      min-height: 92px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      overflow:hidden;
+    }
+    .card::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.20;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 2px, transparent 2px 14px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, transparent 2px 14px);
+    }
+    .card.dropOk{ outline: 4px solid rgba(57,255,106,.55); outline-offset: 3px; }
+
+    .barPic{
+      width: 220px;
+      max-width: 100%;
+      height: 20px;
+      border-radius: 10px;
+      border: var(--pixel) solid #0a0f12;
+      overflow:hidden;
+      display:flex;
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 8px 0 rgba(0,0,0,.25);
+      position:relative;
+    }
+    .barPic::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      opacity:.15;
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 1px, transparent 1px 14px);
+      pointer-events:none;
+    }
+    .barPic span{
+      flex:1 1 auto;
+      border-right: 2px solid rgba(0,0,0,.22);
+      background: rgba(255,255,255,.65);
+    }
+    .barPic span:last-child{border-right:none}
+    .barPic .fill{ background: linear-gradient(180deg, #ffd84a, #ff9f1a); }
+
+    .placeZone{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1000;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing:.2px;
+      text-transform:uppercase;
+      user-select:none;
+      flex: 0 0 auto;
+    }
+
+    .placedToken{
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      border: var(--pixel) solid #0a0f12;
+      display:grid;
+      place-items:center;
+      font-weight:1000;
+      box-shadow: 0 7px 0 rgba(0,0,0,.25);
+      color:#08131a;
+      margin-left: 6px;
+      flex: 0 0 auto;
+    }
+    .placedToken.red{ background: linear-gradient(180deg, #ff6b6b, var(--red)); }
+    .placedToken.blue{ background: linear-gradient(180deg, #69d3ff, var(--blue)); }
+
+    /* Trash */
+    .trash{
+      min-height: 104px;
+      border-radius: 16px;
+      border: var(--pixel) dashed rgba(255,255,255,.35);
+      background:
+        linear-gradient(180deg, rgba(255,46,46,.16), rgba(0,0,0,.10)),
+        linear-gradient(180deg, #3b434a, #2a2f33);
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      position:relative;
+      overflow:hidden;
+    }
+    .trash::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      opacity:.18;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,.12) 0 2px, transparent 2px 12px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 12px);
+      pointer-events:none;
+    }
+    .trash.dropOk{ outline: 4px solid rgba(255,216,74,.60); outline-offset: 3px; }
+
+    .trashLeft{ display:grid; gap:6px; }
+    .trashTitle{
+      font-weight:1000;
+      letter-spacing:.2px;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+    .trashSub{
+      color: rgba(234,255,255,.85);
+      font-weight:900;
+      font-size: 13px;
+      line-height:1.25;
+      max-width: 520px;
+    }
+
+    .trashCounts{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top: 4px;
+    }
+    .trashCountPill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #173a48, #0f2a35);
+      box-shadow: 0 6px 0 rgba(0,0,0,.25);
+      font-weight:1000;
+      font-size: 13px;
+      white-space:nowrap;
+    }
+    .miniDot{
+      width:12px;height:12px;border-radius:3px;
+      border: var(--pixel) solid #0a0f12;
+      box-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+
+    .binIcon{
+      width: 52px;height:52px;
+      border-radius: 10px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #ffd84a, #ff9f1a);
+      box-shadow: 0 7px 0 rgba(0,0,0,.25);
+      display:grid;
+      place-items:center;
+      font-weight:1000;
+      color:#08131a;
+      flex:0 0 auto;
+    }
+
+    /* Right panel */
+    .side{ padding:14px; display:grid; gap:12px; }
+    .panelBox{
+      border-radius: 16px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #1a5164, #134557);
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 12px;
+      display:grid;
+      gap:10px;
+    }
+    .turnLine{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .who{
+      display:flex; align-items:center; gap:10px;
+      font-weight:1000;
+      font-size: 18px;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #2c6b3b, #215a31);
+      box-shadow: 0 6px 0 rgba(0,0,0,.25);
+      color:#eaffff;
+      font-weight:1000;
+      font-size: 13px;
+      white-space:nowrap;
+    }
+
+    .diceRow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .die{
+      border-radius: 16px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #f3f7ff, #cfd9ea);
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 10px;
+      color:#08131a;
+      display:grid;
+      gap:6px;
+      place-items:center;
+      min-height: 94px;
+    }
+    .die .t{ font-size:12px; font-weight:1000; letter-spacing:.3px; text-transform:uppercase; opacity:.75; }
+    .die .n{ font-size: 42px; font-weight:1000; line-height:1; }
+
+    .rolled{
+      border-radius: 16px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #0d1720, #0a1219);
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 12px;
+      display:grid;
+      gap:10px;
+    }
+    .rolledTop{
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      flex-wrap:wrap;
+    }
+    .label{
+      font-size:12px;
+      color: rgba(234,255,255,.75);
+      font-weight:1000;
+      letter-spacing:.3px;
+      text-transform:uppercase;
+    }
+    .bigFrac{
+      display:grid;
+      justify-items:center;
+      line-height: 1.05;
+      font-weight:1000;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+    .bigFrac .top{ font-size: 28px; padding-bottom: 3px; }
+    .bigFrac .bar{
+      width: 74px;
+      height: 7px;
+      background: #eaffff;
+      border-radius: 999px;
+      box-shadow: 0 2px 0 rgba(0,0,0,.35);
+      margin: 2px 0 2px;
+    }
+    .bigFrac .bot{ font-size: 28px; padding-top: 3px; }
+
+    .feedback{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding: 8px 10px;
+      border-radius: 16px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #173a48, #0f2a35);
+      box-shadow: 0 8px 0 rgba(0,0,0,.25);
+    }
+    .mark{
+      width:36px;height:36px;
+      border-radius: 10px;
+      display:grid;
+      place-items:center;
+      font-size: 22px;
+      font-weight:1000;
+      color:#08131a;
+      border: var(--pixel) solid #0a0f12;
+      box-shadow: 0 7px 0 rgba(0,0,0,.25);
+      background: rgba(255,255,255,.25);
+    }
+    .mark.ok{ background: linear-gradient(180deg, #7aff9b, var(--lime)); }
+    .mark.bad{ background: linear-gradient(180deg, #ff7a7a, var(--bad)); }
+    .mark.neutral{ background: linear-gradient(180deg, #ffd84a, #ff9f1a); }
+
+    .hint{
+      color: rgba(234,255,255,.80);
+      font-size: 13px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .tokenRow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    .dock{
+      border-radius: 16px;
+      border: var(--pixel) solid #0a0f12;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,.10), rgba(0,0,0,.10)),
+        linear-gradient(180deg, #3f8c52, #2c6b3b);
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 12px;
+      display:grid;
+      gap:10px;
+    }
+    .dockTop{
+      display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+      font-weight:1000;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+    }
+    .count{
+      padding:6px 10px;
+      border-radius:999px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #173a48, #0f2a35);
+      box-shadow: 0 6px 0 rgba(0,0,0,.25);
+      font-weight:1000;
+      font-size: 13px;
+      white-space:nowrap;
+      color: var(--ink);
+    }
+    .token{
+      width:58px; height:58px;
+      border-radius: 12px;
+      display:grid;
+      place-items:center;
+      font-weight:1000;
+      border: var(--pixel) solid #0a0f12;
+      box-shadow: 0 10px 0 rgba(0,0,0,.25);
+      color:#08131a;
+      user-select:none;
+      cursor: grab;
+    }
+    .token:active{ cursor:grabbing; transform: translateY(2px); box-shadow: 0 8px 0 rgba(0,0,0,.25); }
+    .token.red{ background: linear-gradient(180deg, #ff7a7a, var(--red)); }
+    .token.blue{ background: linear-gradient(180deg, #7ac6ff, var(--blue)); }
+    .token.disabled{ opacity:.5; filter: grayscale(.2); cursor:not-allowed; box-shadow:none; transform:none; }
+
+    .msg{
+      border-radius: 16px;
+      border: var(--pixel) solid #0a0f12;
+      background: linear-gradient(180deg, #173a48, #0f2a35);
+      box-shadow: 0 10px 0 rgba(0,0,0,.30);
+      padding: 12px;
+      font-weight:900;
+      line-height:1.35;
+      color: rgba(234,255,255,.92);
+    }
+    .msg.ok{ background: linear-gradient(180deg, rgba(57,255,106,.18), #0f2a35); }
+    .msg.bad{ background: linear-gradient(180deg, rgba(255,46,46,.18), #0f2a35); }
+    .msg.warn{ background: linear-gradient(180deg, rgba(255,216,74,.22), #0f2a35); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⛏️ Minecraft törtes kártyajáték – kuka számlálóval</h1>
+    <p>A kukába került korongok száma külön látszik pirosra és kékre.</p>
+  </header>
+
+  <main class="wrap">
+    <!-- LEFT -->
+    <section class="frame">
+      <div class="hd">
+        <div class="tag"><span class="dot" style="background:#eaffff"></span> Kártyák (csak sávábra)</div>
+        <div class="tag">
+          <span class="dot" style="background:var(--red)"></span> Piros
+          <span class="dot" style="background:var(--blue)"></span> Kék
+        </div>
+      </div>
+
+      <div class="boardBody">
+        <div class="gridBoard" id="gridBoard" aria-label="Tört-kártyák"></div>
+
+        <div class="trash" id="trash" aria-label="Kuka">
+          <div class="trashLeft">
+            <div class="trashTitle">🗑️ KUKA</div>
+            <div class="trashSub">„Nincs ilyen tört az ábrák közt.” Ha a dobott tört nem szerepel a kártyákon, ide húzd a korongot!</div>
+            <div class="trashCounts">
+              <div class="trashCountPill">
+                <span class="miniDot" style="background:var(--red)"></span>
+                Piros a kukában: <span id="trashR">0</span>
+              </div>
+              <div class="trashCountPill">
+                <span class="miniDot" style="background:var(--blue)"></span>
+                Kék a kukában: <span id="trashB">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="binIcon">BIN</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT -->
+    <aside class="frame">
+      <div class="hd">
+        <div class="tag"><span class="dot" id="turnDot"></span> Soron lévő</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <select class="select" id="levelSelect" aria-label="Pálya választó"></select>
+          <button class="btn secondary" id="resetBtn" type="button">Új játék</button>
+          <button class="btn" id="rollBtn" type="button">🎲 Dobás</button>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="panelBox">
+          <div class="turnLine">
+            <div class="who"><span class="dot" id="turnDotBig"></span><span id="turnName">Piros</span></div>
+            <div class="pill">Cél: 6</div>
+          </div>
+
+          <div class="diceRow">
+            <div class="die"><div class="t">Kocka 1</div><div class="n" id="d1">–</div></div>
+            <div class="die"><div class="t">Kocka 2</div><div class="n" id="d2">–</div></div>
+          </div>
+
+          <div class="rolled">
+            <div class="rolledTop">
+              <div>
+                <div class="label">Kidobott tört</div>
+                <div class="bigFrac" id="rolledFrac">
+                  <div class="top">–</div><div class="bar"></div><div class="bot">–</div>
+                </div>
+              </div>
+              <div class="feedback">
+                <div class="mark neutral" id="markBox">•</div>
+                <div>
+                  <div class="label" style="margin-bottom:4px;">Visszajelzés</div>
+                  <div class="hint" id="hintLine">Válassz pályát, majd dobj…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tokenRow">
+            <div class="dock">
+              <div class="dockTop">
+                <div style="display:flex; align-items:center; gap:10px;"><span class="dot" style="background:var(--red)"></span> Piros korong</div>
+                <div class="count">Kártyán: <span id="countR">0</span></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="token red" id="tokenRed" draggable="true">R</div>
+                <div class="hint">Csak dobás után húzható.<br>Csak a soron lévőé aktív.</div>
+              </div>
+            </div>
+
+            <div class="dock">
+              <div class="dockTop">
+                <div style="display:flex; align-items:center; gap:10px;"><span class="dot" style="background:var(--blue)"></span> Kék korong</div>
+                <div class="count">Kártyán: <span id="countB">0</span></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="token blue" id="tokenBlue" draggable="true">K</div>
+                <div class="hint">Várd meg a sorod!<br>Dobás után húzd a kártyára.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg" id="msgBox">Válassz pályát, majd: 1) Dobj 🎲  2) Húzd a korongot a sávábrára / kukába.</div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    function gcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||1; }
+    function simplify(n,d){ const g=gcd(n,d); return {sn:n/g, sd:d/g}; }
+    function keyOf(n,d){ const s=simplify(n,d); return `${s.sn}/${s.sd}`; }
+
+    const LEVELS = [
+      { name:"Steve", cards:[
+        {n:1,d:2},{n:1,d:3},{n:2,d:3},{n:1,d:4},
+        {n:3,d:4},{n:1,d:5},{n:2,d:5},{n:3,d:5},
+        {n:4,d:5},{n:1,d:6},{n:5,d:6},{n:1,d:1}
+      ]},
+      { name:"Alex", cards:[
+        {n:1,d:2},{n:2,d:4},{n:3,d:6},{n:1,d:3},
+        {n:1,d:4},{n:3,d:4},{n:1,d:5},{n:2,d:5},
+        {n:3,d:5},{n:4,d:5},{n:1,d:6},{n:5,d:6}
+      ]},
+      { name:"Creeper", cards:[
+        {n:1,d:2},{n:1,d:4},{n:3,d:6},{n:2,d:3},
+        {n:3,d:4},{n:2,d:6},{n:2,d:5},{n:3,d:5},
+        {n:4,d:5},{n:4,d:6},{n:5,d:6},{n:1,d:1}
+      ]},
+      { name:"Enderman", cards:[
+        {n:1,d:2},{n:2,d:4},{n:1,d:3},{n:2,d:3},
+        {n:1,d:4},{n:3,d:4},{n:1,d:5},{n:2,d:5},
+        {n:3,d:5},{n:1,d:6},{n:4,d:6},{n:5,d:6}
+      ]},
+      { name:"Herobrine", cards:[
+        {n:1,d:2},{n:1,d:3},{n:1,d:4},{n:1,d:5},
+        {n:1,d:6},{n:2,d:3},{n:2,d:4},{n:2,d:5},
+        {n:3,d:4},{n:3,d:6},{n:4,d:6},{n:5,d:6}
+      ]}
+    ];
+
+    const WIN_TARGET = 6;
+
+    const state = {
+      levelIndex: 0,
+      turn: 0,
+      claimedBy: new Map(),
+      scores: [0,0],
+      trashCounts: [0,0], // red, blue
+      gameOver: false,
+      rolled: null,
+      awaitingPlacement: false
+    };
+
+    const gridBoard = document.getElementById('gridBoard');
+    const trash = document.getElementById('trash');
+
+    const rollBtn = document.getElementById('rollBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const levelSelect = document.getElementById('levelSelect');
+
+    const d1El = document.getElementById('d1');
+    const d2El = document.getElementById('d2');
+
+    const rolledFracEl = document.getElementById('rolledFrac');
+    const hintLine = document.getElementById('hintLine');
+    const msgBox = document.getElementById('msgBox');
+
+    const turnDot = document.getElementById('turnDot');
+    const turnDotBig = document.getElementById('turnDotBig');
+    const turnName = document.getElementById('turnName');
+
+    const tokenRed = document.getElementById('tokenRed');
+    const tokenBlue = document.getElementById('tokenBlue');
+
+    const countR = document.getElementById('countR');
+    const countB = document.getElementById('countB');
+
+    const trashR = document.getElementById('trashR');
+    const trashB = document.getElementById('trashB');
+
+    const markBox = document.getElementById('markBox');
+
+    function setMark(kind){
+      markBox.className = `mark ${kind}`;
+      markBox.textContent = (kind==='ok') ? '✓' : (kind==='bad' ? '✕' : '•');
+    }
+    function flash(html, kind=""){
+      msgBox.className = `msg ${kind}`.trim();
+      msgBox.innerHTML = html;
+    }
+    function setRolledFractionDisplay(topVal, botVal){
+      rolledFracEl.querySelector('.top').textContent = topVal;
+      rolledFracEl.querySelector('.bot').textContent = botVal;
+    }
+    function currentPlayerName(){ return state.turn===0 ? "Piros" : "Kék"; }
+    function currentCards(){ return LEVELS[state.levelIndex].cards; }
+    function boardKeysSet(){ return new Set(currentCards().map(f => keyOf(f.n,f.d))); }
+
+    function updateTurnUI(){
+      const isRed = state.turn===0;
+      turnName.textContent = isRed ? "Piros" : "Kék";
+      turnDot.style.background = isRed ? "var(--red)" : "var(--blue)";
+      turnDotBig.style.background = isRed ? "var(--red)" : "var(--blue)";
+
+      tokenRed.classList.toggle('disabled', !(isRed && state.awaitingPlacement));
+      tokenBlue.classList.toggle('disabled', !(!isRed && state.awaitingPlacement));
+      tokenRed.draggable = isRed && state.awaitingPlacement && !state.gameOver;
+      tokenBlue.draggable = (!isRed) && state.awaitingPlacement && !state.gameOver;
+    }
+
+    function updateCounts(){
+      countR.textContent = String(state.scores[0]);
+      countB.textContent = String(state.scores[1]);
+      trashR.textContent = String(state.trashCounts[0]);
+      trashB.textContent = String(state.trashCounts[1]);
+    }
+
+    function makeBarPic(n,d){
+      const bar = document.createElement('div');
+      bar.className = 'barPic';
+      for(let i=1;i<=d;i++){
+        const seg = document.createElement('span');
+        if(i<=n) seg.classList.add('fill');
+        bar.appendChild(seg);
+      }
+      return bar;
+    }
+
+    function renderBoard(){
+      gridBoard.innerHTML = '';
+      const cards = currentCards();
+
+      cards.forEach((f, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.index = String(idx);
+        card.dataset.key = keyOf(f.n, f.d);
+
+        card.appendChild(makeBarPic(f.n, f.d));
+
+        const zone = document.createElement('div');
+        zone.className = 'placeZone';
+        zone.innerHTML = `<span>IDE</span><span style="color:var(--gold)">⬇</span>`;
+        card.appendChild(zone);
+
+        card.addEventListener('dragover', (e) => {
+          if(!state.awaitingPlacement || state.gameOver) return;
+          e.preventDefault();
+          card.classList.add('dropOk');
+        });
+        card.addEventListener('dragleave', () => card.classList.remove('dropOk'));
+        card.addEventListener('drop', (e) => {
+          e.preventDefault();
+          card.classList.remove('dropOk');
+          handleDropOnCard(idx);
+        });
+
+        gridBoard.appendChild(card);
+      });
+
+      updateClaimTokens();
+    }
+
+    function updateClaimTokens(){
+      gridBoard.querySelectorAll('.placedToken').forEach(n => n.remove());
+
+      state.claimedBy.forEach((player, idx) => {
+        const card = gridBoard.querySelector(`.card[data-index="${idx}"]`);
+        if(!card) return;
+        const t = document.createElement('div');
+        t.className = `placedToken ${player===0 ? 'red' : 'blue'}`;
+        t.textContent = player===0 ? 'R' : 'K';
+        card.appendChild(t);
+      });
+
+      updateCounts();
+    }
+
+    function rollDie(){ return Math.floor(Math.random()*6)+1; }
+
+    function doRoll(){
+      if(state.gameOver) return;
+      if(state.awaitingPlacement){
+        flash("Előbb tedd le a korongot (kártyára vagy a kukába), utána lehet újra dobni.", "warn");
+        return;
+      }
+
+      setMark('neutral');
+
+      const a = rollDie();
+      const b = rollDie();
+      d1El.textContent = a;
+      d2El.textContent = b;
+
+      const num = Math.min(a,b);
+      const den = Math.max(a,b);
+      const s = simplify(num,den);
+      const key = `${s.sn}/${s.sd}`;
+
+      state.rolled = {num,den,key};
+      state.awaitingPlacement = true;
+
+      setRolledFractionDisplay(num,den);
+
+      const keys = boardKeysSet();
+      if(keys.has(key)){
+        hintLine.textContent = "Van ilyen sávábra: tedd a korongot a megfelelő kártyára!";
+        flash(`<b>${currentPlayerName()}</b> dobott. Húzd a korongot a megfelelő sávábrára!`, "");
+      }else{
+        hintLine.textContent = "Nincs ilyen sávábra: húzd a korongot a KUKÁBA!";
+        flash(`<b>Nincs ilyen tört az ábrák közt.</b> Húzd a korongot a 🗑️ <b>KUKÁBA</b>!`, "warn");
+      }
+
+      updateTurnUI();
+    }
+
+    function nextTurn(){
+      state.turn = state.turn===0 ? 1 : 0;
+      updateTurnUI();
+    }
+    function endPlacement(){
+      state.awaitingPlacement = false;
+      updateTurnUI();
+    }
+
+    function handleDropOnCard(cardIdx){
+      if(state.gameOver) return;
+      if(!state.awaitingPlacement || !state.rolled){
+        setMark('bad');
+        flash("Előbb dobni kell 🎲, aztán lehet lerakni a korongot.", "warn");
+        return;
+      }
+
+      if(state.claimedBy.has(cardIdx)){
+        setMark('bad');
+        flash("✕ Ez a kártya már foglalt. A korong visszaugrott.", "bad");
+        endPlacement(); nextTurn();
+        return;
+      }
+
+      const cardKey = gridBoard.querySelector(`.card[data-index="${cardIdx}"]`)?.dataset.key;
+      const targetKey = state.rolled.key;
+
+      if(cardKey === targetKey){
+        state.claimedBy.set(cardIdx, state.turn);
+        state.scores[state.turn] += 1;
+
+        setMark('ok');
+        flash(`✓ Jó hely! <b>${currentPlayerName()}</b> lefoglalt egy kártyát. (${state.scores[state.turn]}/${WIN_TARGET})`, "ok");
+        hintLine.textContent = "Szép! Jöhet a következő dobás.";
+
+        updateClaimTokens();
+
+        if(state.scores[state.turn] >= WIN_TARGET){
+          state.gameOver = true;
+          rollBtn.disabled = true;
+          endPlacement();
+          setMark('ok');
+          flash(`🏆 <b>${currentPlayerName()} NYERT!</b> Lefedett ${WIN_TARGET} kártyát.`, "ok");
+          return;
+        }
+
+        endPlacement(); nextTurn();
+      }else{
+        setMark('bad');
+        flash("✕ Rossz hely! A korong visszaugrott.", "bad");
+        hintLine.textContent = "Tipp: egyszerűsítve keresd a megfelelő sávábrát!";
+        endPlacement(); nextTurn();
+      }
+    }
+
+    // ✅ NEW RULES FOR TRASH:
+    // - no feedback message at all (do not change msgBox)
+    // - just increment and display the proper trash counter (red or blue)
+    function handleDropOnTrash(){
+      if(state.gameOver) return;
+      if(!state.awaitingPlacement || !state.rolled){
+        // keep existing behavior for invalid actions minimal
+        setMark('bad');
+        flash("Előbb dobni kell 🎲, aztán lehet a kukába dobni.", "warn");
+        return;
+      }
+
+      // increment by current player color
+      state.trashCounts[state.turn] += 1;
+      updateCounts();
+
+      // NO feedback: do not call flash(), do not set mark, do not change hintLine
+      endPlacement();
+      nextTurn();
+    }
+
+    function tokenDragStart(e, player){
+      if(state.gameOver) { e.preventDefault(); return; }
+      if(!state.awaitingPlacement){ e.preventDefault(); return; }
+      if(player !== state.turn){ e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', player===0 ? 'red' : 'blue');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+    tokenRed.addEventListener('dragstart', (e) => tokenDragStart(e, 0));
+    tokenBlue.addEventListener('dragstart', (e) => tokenDragStart(e, 1));
+
+    trash.addEventListener('dragover', (e) => {
+      if(!state.awaitingPlacement || state.gameOver) return;
+      e.preventDefault();
+      trash.classList.add('dropOk');
+    });
+    trash.addEventListener('dragleave', () => trash.classList.remove('dropOk'));
+    trash.addEventListener('drop', (e) => {
+      e.preventDefault();
+      trash.classList.remove('dropOk');
+      handleDropOnTrash();
+    });
+
+    function populateLevels(){
+      levelSelect.innerHTML = '';
+      LEVELS.forEach((lvl, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = `Pálya: ${lvl.name}`;
+        levelSelect.appendChild(opt);
+      });
+      levelSelect.value = String(state.levelIndex);
+    }
+
+    function changeLevel(newIdx){
+      state.levelIndex = newIdx;
+      resetGame(false);
+      flash(`Pálya: <b>${LEVELS[state.levelIndex].name}</b>. Kezd a <b>Piros</b>!`, "");
+      hintLine.textContent = "Dobj, majd húzd a korongod a megfelelő sávábrára / kukába.";
+    }
+
+    levelSelect.addEventListener('change', () => {
+      const idx = Number(levelSelect.value);
+      if(Number.isFinite(idx)) changeLevel(idx);
+    });
+
+    function resetGame(showMsg=true){
+      state.turn = 0;
+      state.claimedBy.clear();
+      state.scores = [0,0];
+      state.trashCounts = [0,0];
+      state.gameOver = false;
+      state.rolled = null;
+      state.awaitingPlacement = false;
+
+      rollBtn.disabled = false;
+
+      d1El.textContent = "–";
+      d2El.textContent = "–";
+      setRolledFractionDisplay("–","–");
+      setMark('neutral');
+
+      renderBoard();
+      updateCounts();
+      updateTurnUI();
+
+      if(showMsg){
+        flash("Új játék indult. Kezd a <b>Piros</b>! 1) Dobj 🎲  2) Húzd a korongot.", "");
+        hintLine.textContent = "Dobj, majd húzd a korongod a megfelelő sávábrára / kukába.";
+      }
+    }
+
+    populateLevels();
+    renderBoard();
+    updateCounts();
+    updateTurnUI();
+
+    rollBtn.addEventListener('click', doRoll);
+    resetBtn.addEventListener('click', () => resetGame(true));
+
+    window.addEventListener('keydown', (e) => {
+      if(e.code === 'Space'){
+        e.preventDefault();
+        if(!rollBtn.disabled) doRoll();
+      }
+    });
+  </script>
+</body>
+</html>
